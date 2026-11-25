@@ -81,7 +81,7 @@ public class MediaLibraryPlugin extends Plugin {
                 int albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM);
                 int durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION);
                 int sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE);
-                int pathCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.RELATIVE_PATH);
+                int pathCol = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ? cursor.getColumnIndex(MediaStore.Audio.Media.RELATIVE_PATH) : -1;
 
                 while (cursor.moveToNext()) {
                     long id = cursor.getLong(idCol);
@@ -109,7 +109,7 @@ public class MediaLibraryPlugin extends Plugin {
                     item.put("album", cursor.getString(albumCol));
                     item.put("duration", cursor.getLong(durationCol));
                     item.put("size", cursor.getLong(sizeCol));
-                    item.put("path", cursor.getString(pathCol) == null ? "" : cursor.getString(pathCol));
+                    item.put("path", pathCol >= 0 && !cursor.isNull(pathCol) ? cursor.getString(pathCol) : "");
                     item.put("filePath", target.getAbsolutePath());
                     result.put(item);
                 }
