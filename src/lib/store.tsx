@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import { AUDIO_EXT, db, isQuran, parseName, type Category, type Playlist, type Track } from "./db";
 import { tr, type Key, type Lang } from "./i18n";
 
@@ -24,6 +25,10 @@ const DEFAULT: Settings = {
   eq: [0, 0, 0, 0, 0],
 };
 export const EQ_FREQS = [60, 230, 910, 3600, 14000];
+
+type NativeMediaItem = { id: string; name: string; title?: string; artist?: string; album?: string; duration: number; size: number; path: string; filePath: string };
+type MediaLibraryPlugin = { scan(): Promise<{ items: NativeMediaItem[]; count: number }> };
+const NativeMediaLibrary = registerPlugin<MediaLibraryPlugin>("MediaLibrary");
 
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
@@ -131,6 +136,31 @@ function useProvideStore() {
     return added.length;
   };
 
+  const scanDeviceLibrary = async () => {
+    if (!Capacitor.isNativePlatform()) return 0;
+    setScanning(true);
+    try {
+      const { items } = await NativeMediaLibrary.scan();
+      const files: { file: File; path: string }[] = [];
+      for (const item of items) {
+        try {
+          const url = Capacitor.convertFileSrc(item.filePath);
+          const response = await fetch(url);
+          if (!response.ok) continue;
+          const blob = await response.blob();
+          const file = new File([blob], item.name, { type: blob.type || "audio/mpeg", lastModified: Date.now() });
+          files.push({ file, path: item.path || item.album || "" });
+        } catch { /* Skip a file that became unavailable during scanning. */ }
+      }
+      return await addFiles(files);
+    } catch (error) {
+      console.warn("Naghma media scan failed", error);
+      return 0;
+    } finally {
+      setScanning(false);
+    }
+  };
+
   const scanHandle = async (h: FileSystemDirectoryHandle) => {
     setScanning(true);
     const out: { file: File; path: string }[] = [];
@@ -143,7 +173,7 @@ function useProvideStore() {
     try { await walk(h, h.name); await addFiles(out); } finally { setScanning(false); }
   };
 
-  const pickFolder = async () => {
+  const pickFolder = async () => {\n    if (Capacitor.isNativePlatform()) { await scanDeviceLibrary(); return true; }
     // @ts-expect-error not in all TS libs
     if (window.showDirectoryPicker) {
       try {
@@ -314,7 +344,7 @@ function useProvideStore() {
   }, [tracks]);
 
   return {
-    ready, t, tracks, playlists, settings, updateSettings, saveTrack, addFiles, pickFolder, scanning,
+    ready, t, tracks, playlists, settings, updateSettings, saveTrack, addFiles, pickFolder, scanDeviceLibrary, scanning,
     removeTracks, moveTracks, reorderTracks, createPlaylist, savePlaylist, deletePlaylist, addToPlaylist, importPlaylist,
     queue, index, current, playing, pos, dur, playList, next, prev, toggle, seek, playNext, recommendations,
   };
