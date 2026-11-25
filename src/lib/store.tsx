@@ -173,7 +173,8 @@ function useProvideStore() {
     try { await walk(h, h.name); await addFiles(out); } finally { setScanning(false); }
   };
 
-  const pickFolder = async () => {\n    if (Capacitor.isNativePlatform()) { await scanDeviceLibrary(); return true; }
+  const pickFolder = async () => {
+    if (Capacitor.isNativePlatform()) { await scanDeviceLibrary(); return true; }
     // @ts-expect-error not in all TS libs
     if (window.showDirectoryPicker) {
       try {
